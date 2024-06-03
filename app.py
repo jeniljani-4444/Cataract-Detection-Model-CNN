@@ -1,60 +1,57 @@
-from flask import Flask, render_template, request  # type: ignore
-from tensorflow.keras.models import load_model  # type: ignore
-from tensorflow.keras.preprocessing import image as keras_image  # type: ignore
+import tensorflow as tf
+from tensorflow import keras
+import streamlit as st
+from tensorflow.keras.models import load_model #type: ignore
 import numpy as np
+from tensorflow.keras.preprocessing import image as keras_image #type: ignore
 from PIL import Image
-import os
+from tensorflow.keras.utils import custom_object_scope #type: ignore
+import tensorflowhub as hub #type: ignore
 
-app = Flask(__name__)
 
 class Eye:
     def __init__(self):
-        try:
-            # Use absolute path for the model file
-            model_path = os.path.abspath("cataract_detection_model_2.h5")
-            print(f"Loading model from: {model_path}")
-            self.model = load_model(model_path)
-            self.class_names = ['normal', 'cataract']
-        except Exception as e:
-            print(f"Error loading model: {e}")
-            self.model = None
+        self.model = load_model("cataract_detection_model_2.h5")
+        self.class_names = ['normal', 'cataract']
+
     
     def img_preprocessor(self, img):
-        if self.model is None:
-            return "Error", None
-        
-        img = img.resize((224, 224))
-        img_array = keras_image.img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array / 255.0  # Rescale the image
+            img = img.resize((224, 224))
+            img_array = keras_image.img_to_array(img)
+            img_array = np.expand_dims(img_array, axis=0)
+            img_array = img_array / 255.0  # Rescale the image
 
-        prediction = self.model.predict(img_array)
+            print("Predicting...")
+            prediction = self.model.predict(img_array)
+            print(f"Prediction: {prediction}")
 
-        if prediction[0] > 0.5:
-            return self.class_names[1], prediction[0]
-        else:
-            return self.class_names[0], 1 - prediction[0]
+            if prediction[0] > 0.5:
+                return self.class_names[1], prediction[0]
+            else:
+                return self.class_names[0], 1 - prediction[0]
+    
+    def streamlit_app(self):
+        st.set_page_config(
+            page_title="Cataract Classification App",
+            page_icon=":eye:"
+        )
 
-eye = Eye()
+        st.title("Cataract Classifier :eye:")
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            return render_template('index.html', error="No file part")
+        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-        file = request.files['file']
-        if file.filename == '':
-            return render_template('index.html', error="No selected file")
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Uploaded Image", use_column_width=True)
 
-        if file:
-            image = Image.open(file.stream)
-            label, confidence = eye.img_preprocessor(image)
-            if label == "Error":
-                return render_template('index.html', error="Error loading model or processing image. Please check the model file and try again.")
-            return render_template('index.html', label=label, confidence=confidence[0] * 100)
-
-    return render_template('index.html')
+            if st.button("Predict"):
+                st.write("Classifying...")
+                label, confidence = self.img_preprocessor(image)
+                if label == "Error":
+                    st.write("Error loading model or processing image. Please check the model file and try again.")
+                else:
+                    st.write(f"Prediction: {label} ({confidence[0] * 100 :.2f}% confidence)")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app = Eye()
+    app.streamlit_app()
