@@ -6,7 +6,7 @@ import numpy as np
 from tensorflow.keras.preprocessing import image as keras_image #type: ignore
 from PIL import Image
 from tensorflow.keras.utils import custom_object_scope #type: ignore
-import tensorflow_hub as hub
+
 
 class Eye:
     def __init__(self):
